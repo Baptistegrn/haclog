@@ -71,7 +71,7 @@ static int haclog_console_handler_before_write(haclog_handler_t *base_handler,
 		GetConsoleScreenBufferInfo(stdout_handle, &sb_info);
 		handler->sb_attrs = sb_info.wAttributes;
 
-		if (meta->loc->level >= HACLOG_LEVEL_CRITICAL) {
+		if (meta->loc->level >= HACLOG_LEVEL_FATAL) {
 			SetConsoleTextAttribute(console_handle, FOREGROUND_RED);
 		} else if (meta->loc->level >= HACLOG_LEVEL_ERROR) {
 			SetConsoleTextAttribute(console_handle,
@@ -89,7 +89,7 @@ static int haclog_console_handler_before_write(haclog_handler_t *base_handler,
 													FOREGROUND_INTENSITY);
 		}
 #else
-		if (meta->loc->level >= HACLOG_LEVEL_CRITICAL) {
+		if (meta->loc->level >= HACLOG_LEVEL_FATAL) {
 			fwrite(UNIX_TERMINAL_COLOR_DARK_RED, 1,
 				   strlen(UNIX_TERMINAL_COLOR_DARK_RED), handler->fp);
 		} else if (meta->loc->level >= HACLOG_LEVEL_ERROR) {
