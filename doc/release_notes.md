@@ -1,0 +1,56 @@
+# Release Notes
+
+| date | version |
+| ---- | ---- |
+| 2026-06-26 | [v0.4.4](#v044) |
+| 2025-04-17 | [v0.4.3](#v043) |
+| 2025-04-16 | [v0.4.2](#v042) |
+| 2025-02-27 | [v0.4.1](#v041) |
+| 2024-09-23 | [v0.4.0](#v040) |
+| 2024-09-05 | [v0.3.1](#v031) |
+| 2024-08-21 | [v0.3.0](#v030) |
+| 2024-03-22 | [v0.2.0](#v020) |
+| 2024-01-13 | [v0.1.6](#v016) |
+| 2024-01-11 | [v0.1.5](#v015) |
+
+---
+## v0.4.4
+* fix `haclog_file_time_rot_handler_t::use_local_time` was not set in time during init phase
+
+---
+## v0.4.3
+* update: remove redundant log level filtering
+
+---
+## v0.4.2
+* update: filter log in HACLOG_LOG_DEFAULT, avoid pointlessly init a primitive
+
+---
+## v0.4.1
+* fix: non-ASCII character path issue in windows
+
+---
+## v0.4.0
+* fix: failed automatically mkdir when log filepath is abs filepath
+* add: add haclog_os_fopen
+
+---
+## v0.3.1
+* fix: long log line overflow
+
+---
+## v0.3.0
+* update: allow to disable thread context auto initialize
+
+---
+## v0.2.0
+* update: support callback function before backend run
+
+---
+## v0.1.6
+* update: hint non-standard(c11) '%lf' specifier
+* fix: serialize '%%'
+
+---
+## v0.1.5
+* fix: haclog context init
