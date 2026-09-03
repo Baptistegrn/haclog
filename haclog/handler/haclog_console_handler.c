@@ -46,13 +46,22 @@
 
 // terminal color for *nix
 #define UNIX_TERMINAL_COLOR_RST UNIX_TERMINAL_COLOR(0)
-#define UNIX_TERMINAL_COLOR_RED UNIX_TERMINAL_COLOR(31)
+#define UNIX_TERMINAL_COLOR_DARK_RED UNIX_TERMINAL_COLOR(31)
 #define UNIX_TERMINAL_COLOR_GRN UNIX_TERMINAL_COLOR(32)
 #define UNIX_TERMINAL_COLOR_YEL UNIX_TERMINAL_COLOR(33)
 #define UNIX_TERMINAL_COLOR_BLU UNIX_TERMINAL_COLOR(34)
 #define UNIX_TERMINAL_COLOR_MAG UNIX_TERMINAL_COLOR(35)
 #define UNIX_TERMINAL_COLOR_CYN UNIX_TERMINAL_COLOR(36)
 #define UNIX_TERMINAL_COLOR_WHT UNIX_TERMINAL_COLOR(37)
+#define UNIX_TERMINAL_COLOR_RED UNIX_TERMINAL_COLOR(91)
+
+#if HACLOG_PLATFORM_WINDOWS
+static HANDLE haclog_console_handler_get_handle(haclog_console_handler_t *handler)
+{
+	return GetStdHandle((handler->fp == stderr) ? STD_ERROR_HANDLE
+												  : STD_OUTPUT_HANDLE);
+}
+#endif
 
 static int haclog_console_handler_before_write(haclog_handler_t *base_handler,
 											   haclog_meta_info_t *meta)
@@ -60,15 +69,14 @@ static int haclog_console_handler_before_write(haclog_handler_t *base_handler,
 	haclog_console_handler_t *handler =
 		(haclog_console_handler_t *)base_handler;
 
-	if (handler->enable_color && meta->loc->level >= HACLOG_LEVEL_WARNING) {
-		handler->fp = stderr;
+	handler->fp = (meta->loc->level >= HACLOG_LEVEL_WARNING) ? stderr : stdout;
 
+	if (handler->enable_color) {
 #if HACLOG_PLATFORM_WINDOWS
-		const HANDLE stdout_handle = GetStdHandle(STD_OUTPUT_HANDLE);
-
-		// get the current text color
+		HANDLE console_handle = haclog_console_handler_get_handle(handler);
 		CONSOLE_SCREEN_BUFFER_INFO sb_info;
-		GetConsoleScreenBufferInfo(stdout_handle, &sb_info);
+
+		GetConsoleScreenBufferInfo(console_handle, &sb_info);
 		handler->sb_attrs = sb_info.wAttributes;
 
 		if (meta->loc->level >= HACLOG_LEVEL_FATAL) {
@@ -106,8 +114,6 @@ static int haclog_console_handler_before_write(haclog_handler_t *base_handler,
 				   handler->fp);
 		}
 #endif
-	} else {
-		handler->fp = stdout;
 	}
 
 	return 0;
@@ -121,13 +127,13 @@ static int haclog_console_handler_after_write(haclog_handler_t *base_handler,
 
 	fwrite("\n", 1, 1, handler->fp);
 
-	if (handler->enable_color && meta->loc->level >= HACLOG_LEVEL_WARNING) {
+	if (handler->enable_color) {
 #if HACLOG_PLATFORM_WINDOWS
-		const HANDLE stdout_handle = GetStdHandle(STD_OUTPUT_HANDLE);
-		SetConsoleTextAttribute(stdout_handle, handler->sb_attrs);
+		HANDLE console_handle = haclog_console_handler_get_handle(handler);
+		SetConsoleTextAttribute(console_handle, handler->sb_attrs);
 #else
 		fwrite(UNIX_TERMINAL_COLOR_RST, 1, strlen(UNIX_TERMINAL_COLOR_RST),
-			   stderr);
+			   handler->fp);
 #endif
 	}
 
