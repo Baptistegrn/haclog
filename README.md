@@ -170,6 +170,39 @@ int my_write_meta(struct haclog_handler *handler, haclog_meta_info_t *meta)
 haclog_handler_set_fn_write_meta((haclog_handler_t *)&handler, my_write_meta);
 haclog_context_add_handler((haclog_handler_t *)&handler);
 ```
+### Customizing Console Log Colors
+
+By default, colors are applied to the logs if you have enabled them. You can customize the color scheme by defining an array of colors corresponding to each log level:
+
+```
+haclog_color_t colors[] = {
+    HACLOG_COLOR_CYN, // trace
+    HACLOG_COLOR_GRN, // debug
+    HACLOG_COLOR_WHT, // info
+    HACLOG_COLOR_YEL, // warning
+    HACLOG_COLOR_RED, // error
+    HACLOG_COLOR_MAG  // fatal
+};
+
+haclog_console_handler_set_color(
+    (haclog_handler_t *)handler,
+    colors,
+    sizeof(colors) / sizeof(colors[0])
+);
+
+```
+
+**Available colors:**
+
+* `HACLOG_COLOR_RED`
+* `HACLOG_COLOR_GRN`
+* `HACLOG_COLOR_YEL`
+* `HACLOG_COLOR_BLU`
+* `HACLOG_COLOR_MAG`
+* `HACLOG_COLOR_CYN`
+* `HACLOG_COLOR_WHT`
+* `HACLOG_COLOR_RST` (Reset to default console color)
+
 
 ### Set Bytes Buffer size
 ```
