@@ -182,6 +182,7 @@ haclog_color_t colors[] = {
     HACLOG_COLOR_YEL, // warning
     HACLOG_COLOR_RED, // error
     HACLOG_COLOR_MAG  // fatal
+	HACLOG_COLOR_RED, // max
 };
 
 haclog_console_handler_set_color(

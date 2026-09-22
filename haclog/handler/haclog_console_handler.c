@@ -336,7 +336,8 @@ int haclog_console_handler_init(haclog_console_handler_t *handler,
 			HACLOG_COLOR_GRN, // info
 			HACLOG_COLOR_YEL, // warning
 			HACLOG_COLOR_RED, // error
-			HACLOG_COLOR_MAG  // fatal
+			HACLOG_COLOR_MAG,  // fatal
+			HACLOG_COLOR_MAG   // max
 		};
 
 		haclog_console_handler_set_color(
@@ -389,6 +390,10 @@ int haclog_console_handler_set_color(haclog_handler_t *base_handler,
 
 	if (colors_count >= 6) {
 		handler->fatal = colors[5];
+	}
+
+	else {
+		handler->max = colors[6];
 	}
 
 	return 0;
