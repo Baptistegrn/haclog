@@ -1,14 +1,14 @@
 #include "haclog_console_handler.h"
 #include "haclog/haclog_vsprintf.h"
 #include "haclog/handler/haclog_handler.h"
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-#include <stdarg.h>
 
 /*
  * unix terminal colors
  *
- * output colored text, need print or echo -e the control characters for 
+ * output colored text, need print or echo -e the control characters for
  * required color, then output text, and then reset the output back to default.
  *
  * "\x1B[${code}m" or "\033[${code}m", ${code} represent color code
@@ -55,346 +55,236 @@
 #define UNIX_TERMINAL_COLOR_CYN UNIX_TERMINAL_COLOR(36)
 #define UNIX_TERMINAL_COLOR_WHT UNIX_TERMINAL_COLOR(37)
 
-/*TODO : remove the switch
-while keeping the color to be written to memory
-*/
-static int haclog_console_handler_before_write(haclog_handler_t *base_handler,
-											   haclog_meta_info_t *meta)
-{
-	haclog_console_handler_t *handler =
-		(haclog_console_handler_t *)base_handler;
-
-	if (handler->enable_color &&
-		meta->loc->level >= HACLOG_LEVEL_TRACE &&
-		meta->loc->level < HACLOG_LEVEL_MAX) {
-
-		handler->fp = stderr;
+// get the current color set
+static haclog_color_t
+haclog_console_handler_level_color(const haclog_console_handler_t *handler,
+                                   int level) {
+  switch (level) {
+  case HACLOG_LEVEL_TRACE:
+    return handler->trace;
+  case HACLOG_LEVEL_DEBUG:
+    return handler->debug;
+  case HACLOG_LEVEL_INFO:
+    return handler->info;
+  case HACLOG_LEVEL_WARNING:
+    return handler->warning;
+  case HACLOG_LEVEL_ERROR:
+    return handler->error;
+  case HACLOG_LEVEL_FATAL:
+    return handler->fatal;
+  default:
+    return handler->max;
+  }
+}
 
 #if HACLOG_PLATFORM_WINDOWS
 
-		const HANDLE stdout_handle = GetStdHandle(STD_OUTPUT_HANDLE);
+// color on windows
+static HANDLE
+haclog_console_handler_handle(const haclog_console_handler_t *handler) {
+  return GetStdHandle(handler->fp == stderr ? STD_ERROR_HANDLE
+                                            : STD_OUTPUT_HANDLE);
+}
 
-		// Get the current text color
-		CONSOLE_SCREEN_BUFFER_INFO sb_info;
-		GetConsoleScreenBufferInfo(stdout_handle, &sb_info);
-		handler->sb_attrs = sb_info.wAttributes;
+static WORD haclog_color_to_win_attr(haclog_color_t color, WORD default_attrs) {
+  const WORD bg = default_attrs & 0xF0;
 
-		haclog_color_t color;
-
-		switch (meta->loc->level) {
-		case HACLOG_LEVEL_TRACE:
-			color = handler->trace;
-			break;
-
-		case HACLOG_LEVEL_DEBUG:
-			color = handler->debug;
-			break;
-
-		case HACLOG_LEVEL_INFO:
-			color = handler->info;
-			break;
-
-		case HACLOG_LEVEL_WARNING:
-			color = handler->warning;
-			break;
-
-		case HACLOG_LEVEL_ERROR:
-			color = handler->error;
-			break;
-
-		case HACLOG_LEVEL_FATAL:
-			color = handler->fatal;
-			break;
-
-		default:
-			color = handler->max;
-			break;
-		}
-
-		switch (color) {
-		case HACLOG_COLOR_RED:
-			SetConsoleTextAttribute(
-				stdout_handle,
-				FOREGROUND_RED | FOREGROUND_INTENSITY
-			);
-			break;
-
-		case HACLOG_COLOR_GRN:
-			SetConsoleTextAttribute(
-				stdout_handle,
-				FOREGROUND_GREEN | FOREGROUND_INTENSITY
-			);
-			break;
-
-		case HACLOG_COLOR_YEL:
-			SetConsoleTextAttribute(
-				stdout_handle,
-				FOREGROUND_RED |
-				FOREGROUND_GREEN |
-				FOREGROUND_INTENSITY
-			);
-			break;
-
-		case HACLOG_COLOR_BLU:
-			SetConsoleTextAttribute(
-				stdout_handle,
-				FOREGROUND_BLUE | FOREGROUND_INTENSITY
-			);
-			break;
-
-		case HACLOG_COLOR_MAG:
-			SetConsoleTextAttribute(
-				stdout_handle,
-				FOREGROUND_RED |
-				FOREGROUND_BLUE |
-				FOREGROUND_INTENSITY
-			);
-			break;
-
-		case HACLOG_COLOR_CYN:
-			SetConsoleTextAttribute(
-				stdout_handle,
-				FOREGROUND_GREEN |
-				FOREGROUND_BLUE |
-				FOREGROUND_INTENSITY
-			);
-			break;
-
-		case HACLOG_COLOR_WHT:
-			SetConsoleTextAttribute(
-				stdout_handle,
-				FOREGROUND_RED |
-				FOREGROUND_GREEN |
-				FOREGROUND_BLUE |
-				FOREGROUND_INTENSITY
-			);
-			break;
-
-		case HACLOG_COLOR_RST:
-		default:
-			SetConsoleTextAttribute(
-				stdout_handle,
-				handler->sb_attrs
-			);
-			break;
-		}
+  switch (color) {
+  case HACLOG_COLOR_RED:
+    return bg | FOREGROUND_RED | FOREGROUND_INTENSITY;
+  case HACLOG_COLOR_GRN:
+    return bg | FOREGROUND_GREEN | FOREGROUND_INTENSITY;
+  case HACLOG_COLOR_YEL:
+    return bg | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY;
+  case HACLOG_COLOR_BLU:
+    return bg | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
+  case HACLOG_COLOR_MAG:
+    return bg | FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
+  case HACLOG_COLOR_CYN:
+    return bg | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
+  case HACLOG_COLOR_WHT:
+    return bg | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE |
+           FOREGROUND_INTENSITY;
+  case HACLOG_COLOR_RST:
+  default:
+    return default_attrs;
+  }
+}
 
 #else
 
-		haclog_color_t color;
-
-		switch (meta->loc->level) {
-		case HACLOG_LEVEL_TRACE:
-			color = handler->trace;
-			break;
-
-		case HACLOG_LEVEL_DEBUG:
-			color = handler->debug;
-			break;
-
-		case HACLOG_LEVEL_INFO:
-			color = handler->info;
-			break;
-
-		case HACLOG_LEVEL_WARNING:
-			color = handler->warning;
-			break;
-
-		case HACLOG_LEVEL_ERROR:
-			color = handler->error;
-			break;
-
-		case HACLOG_LEVEL_FATAL:
-			color = handler->fatal;
-			break;
-
-		default:
-			color = handler->max;
-			break;
-		}
-
-		switch (color) {
-		case HACLOG_COLOR_RED:
-			fwrite(UNIX_TERMINAL_COLOR_RED,
-				   1, strlen(UNIX_TERMINAL_COLOR_RED), handler->fp);
-			break;
-
-		case HACLOG_COLOR_GRN:
-			fwrite(UNIX_TERMINAL_COLOR_GRN,
-				   1, strlen(UNIX_TERMINAL_COLOR_GRN), handler->fp);
-			break;
-
-		case HACLOG_COLOR_YEL:
-			fwrite(UNIX_TERMINAL_COLOR_YEL,
-				   1, strlen(UNIX_TERMINAL_COLOR_YEL), handler->fp);
-			break;
-
-		case HACLOG_COLOR_BLU:
-			fwrite(UNIX_TERMINAL_COLOR_BLU,
-				   1, strlen(UNIX_TERMINAL_COLOR_BLU), handler->fp);
-			break;
-
-		case HACLOG_COLOR_MAG:
-			fwrite(UNIX_TERMINAL_COLOR_MAG,
-				   1, strlen(UNIX_TERMINAL_COLOR_MAG), handler->fp);
-			break;
-
-		case HACLOG_COLOR_CYN:
-			fwrite(UNIX_TERMINAL_COLOR_CYN,
-				   1, strlen(UNIX_TERMINAL_COLOR_CYN), handler->fp);
-			break;
-
-		case HACLOG_COLOR_WHT:
-			fwrite(UNIX_TERMINAL_COLOR_WHT,
-				   1, strlen(UNIX_TERMINAL_COLOR_WHT), handler->fp);
-			break;
-
-		case HACLOG_COLOR_RST:
-		default:
-			fwrite(UNIX_TERMINAL_COLOR_RST,
-				   1, strlen(UNIX_TERMINAL_COLOR_RST), handler->fp);
-			break;
-		}
+// color on unix
+static const char *haclog_color_to_ansi(haclog_color_t color) {
+  switch (color) {
+  case HACLOG_COLOR_RED:
+    return UNIX_TERMINAL_COLOR_RED;
+  case HACLOG_COLOR_GRN:
+    return UNIX_TERMINAL_COLOR_GRN;
+  case HACLOG_COLOR_YEL:
+    return UNIX_TERMINAL_COLOR_YEL;
+  case HACLOG_COLOR_BLU:
+    return UNIX_TERMINAL_COLOR_BLU;
+  case HACLOG_COLOR_MAG:
+    return UNIX_TERMINAL_COLOR_MAG;
+  case HACLOG_COLOR_CYN:
+    return UNIX_TERMINAL_COLOR_CYN;
+  case HACLOG_COLOR_WHT:
+    return UNIX_TERMINAL_COLOR_WHT;
+  case HACLOG_COLOR_RST:
+  default:
+    return UNIX_TERMINAL_COLOR_RST;
+  }
+}
 
 #endif
-	} else {
-		handler->fp = stdout;
-	}
 
-	return 0;
+static int haclog_console_handler_before_write(haclog_handler_t *base_handler,
+                                               haclog_meta_info_t *meta) {
+  haclog_console_handler_t *handler = (haclog_console_handler_t *)base_handler;
+
+  if (handler->enable_color && meta->loc->level >= HACLOG_LEVEL_WARNING) {
+    handler->fp = stderr;
+  } else {
+    handler->fp = stdout;
+  }
+
+  if (handler->enable_color) {
+    const haclog_color_t color =
+        haclog_console_handler_level_color(handler, meta->loc->level);
+
+#if HACLOG_PLATFORM_WINDOWS
+    SetConsoleTextAttribute(
+        haclog_console_handler_handle(handler),
+        haclog_color_to_win_attr(color, (WORD)handler->sb_attrs));
+#else
+    const char *ansi = haclog_color_to_ansi(color);
+    fwrite(ansi, 1, strlen(ansi), handler->fp);
+#endif
+  }
+
+  return 0;
 }
 
 static int haclog_console_handler_after_write(haclog_handler_t *base_handler,
-											  haclog_meta_info_t *meta)
-{
-	haclog_console_handler_t *handler =
-		(haclog_console_handler_t *)base_handler;
+                                              haclog_meta_info_t *meta) {
+  HACLOG_UNUSED(meta);
 
-	fwrite("\n", 1, 1, handler->fp);
+  haclog_console_handler_t *handler = (haclog_console_handler_t *)base_handler;
 
-	if (handler->enable_color && meta->loc->level >= HACLOG_LEVEL_WARNING) {
+  if (handler->enable_color) {
 #if HACLOG_PLATFORM_WINDOWS
-		const HANDLE stdout_handle = GetStdHandle(STD_OUTPUT_HANDLE);
-		SetConsoleTextAttribute(stdout_handle, handler->sb_attrs);
+    fwrite("\n", 1, 1, handler->fp);
+    fflush(handler->fp);
+    SetConsoleTextAttribute(haclog_console_handler_handle(handler),
+                            (WORD)handler->sb_attrs);
 #else
-		fwrite(UNIX_TERMINAL_COLOR_RST, 1, strlen(UNIX_TERMINAL_COLOR_RST),
-			   stderr);
+    fwrite(UNIX_TERMINAL_COLOR_RST, 1, strlen(UNIX_TERMINAL_COLOR_RST),
+           handler->fp);
+    fwrite("\n", 1, 1, handler->fp);
 #endif
-	}
+  } else {
+    fwrite("\n", 1, 1, handler->fp);
+  }
 
-	fflush(handler->fp);
+  fflush(handler->fp);
 
-	return 0;
+  return 0;
 }
 
 static int haclog_console_handler_write(haclog_handler_t *base_handler,
-										const char *msg, int msglen)
-{
-	haclog_console_handler_t *handler =
-		(haclog_console_handler_t *)base_handler;
-	return (int)fwrite(msg, 1, msglen, handler->fp);
+                                        const char *msg, int msglen) {
+  haclog_console_handler_t *handler = (haclog_console_handler_t *)base_handler;
+  return (int)fwrite(msg, 1, msglen, handler->fp);
 }
 
 static int haclog_console_handler_writev(haclog_handler_t *base_handler,
-										 const char *fmt_str, ...)
-{
-	haclog_console_handler_t *handler =
-		(haclog_console_handler_t *)base_handler;
+                                         const char *fmt_str, ...) {
+  haclog_console_handler_t *handler = (haclog_console_handler_t *)base_handler;
 
-	va_list args;
-	va_start(args, fmt_str);
-	int n = vfprintf(handler->fp, fmt_str, args);
-	va_end(args);
+  va_list args;
+  va_start(args, fmt_str);
+  int n = vfprintf(handler->fp, fmt_str, args);
+  va_end(args);
 
-	return n;
+  return n;
 }
 
-static void haclog_console_handler_destroy(struct haclog_handler *handler)
-{
-	HACLOG_UNUSED(handler);
+static void haclog_console_handler_destroy(struct haclog_handler *handler) {
+  HACLOG_UNUSED(handler);
 }
 
 int haclog_console_handler_init(haclog_console_handler_t *handler,
-								int enable_color)
-{
-	memset(handler, 0, sizeof(*handler));
-	handler->enable_color = enable_color;
+                                int enable_color) {
+  memset(handler, 0, sizeof(*handler));
+  handler->enable_color = enable_color;
 
-	handler->base.before_write = haclog_console_handler_before_write;
-	handler->base.write_meta = haclog_handler_default_write_meta;
-	handler->base.write = haclog_console_handler_write;
-	handler->base.writev = haclog_console_handler_writev;
-	handler->base.after_write = haclog_console_handler_after_write;
-	handler->base.destroy = haclog_console_handler_destroy;
-	handler->base.level = HACLOG_LEVEL_INFO;
+  handler->base.before_write = haclog_console_handler_before_write;
+  handler->base.write_meta = haclog_handler_default_write_meta;
+  handler->base.write = haclog_console_handler_write;
+  handler->base.writev = haclog_console_handler_writev;
+  handler->base.after_write = haclog_console_handler_after_write;
+  handler->base.destroy = haclog_console_handler_destroy;
+  handler->base.level = HACLOG_LEVEL_INFO;
 
-	if(enable_color){
-		// default colors
-		haclog_color_t colors[] = {
-			HACLOG_COLOR_WHT, // trace
-			HACLOG_COLOR_CYN, // debug
-			HACLOG_COLOR_GRN, // info
-			HACLOG_COLOR_YEL, // warning
-			HACLOG_COLOR_RED, // error
-			HACLOG_COLOR_MAG,  // fatal
-			HACLOG_COLOR_MAG   // max
-		};
+  // default colors
+  haclog_color_t colors[] = {
+      HACLOG_COLOR_WHT, // trace
+      HACLOG_COLOR_CYN, // debug
+      HACLOG_COLOR_GRN, // info
+      HACLOG_COLOR_YEL, // warning
+      HACLOG_COLOR_RED, // error
+      HACLOG_COLOR_MAG, // fatal
+      HACLOG_COLOR_MAG  // max
+  };
+  haclog_console_handler_set_color((haclog_handler_t *)handler, colors,
+                                   sizeof(colors) / sizeof(colors[0]));
 
-		haclog_console_handler_set_color(
-			(haclog_handler_t *)handler,
-			colors,
-			sizeof(colors) / sizeof(colors[0])
-		);
-	}
+#if HACLOG_PLATFORM_WINDOWS
+  CONSOLE_SCREEN_BUFFER_INFO sb_info;
+  if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &sb_info)) {
+    handler->sb_attrs = sb_info.wAttributes;
+  } else {
+    handler->sb_attrs = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
+  }
+#endif
 
-	return 0;
+  return 0;
 }
 
-
 int haclog_console_handler_set_color(haclog_handler_t *base_handler,
-									 haclog_color_t *colors,
-									 int colors_count)
-{
-	haclog_console_handler_t *handler =
-		(haclog_console_handler_t *)base_handler;
+                                     haclog_color_t *colors, int colors_count) {
+  haclog_console_handler_t *handler = (haclog_console_handler_t *)base_handler;
 
-	if (colors == NULL || colors_count <= 0) {
-		return 1;
-	}
+  if (colors == NULL || colors_count <= 0) {
+    return 1;
+  }
 
-	/*
-	 * You don't have to change all colors.
-	 * For example, color_count = 2 changes only
-	 * TRACE and DEBUG.
-	 */
+  /*
+   * You don't have to change all colors.
+   * For example, colors_count = 2 changes only
+   * TRACE and DEBUG.
+   */
+  if (colors_count >= 1) {
+    handler->trace = colors[0];
+  }
+  if (colors_count >= 2) {
+    handler->debug = colors[1];
+  }
+  if (colors_count >= 3) {
+    handler->info = colors[2];
+  }
+  if (colors_count >= 4) {
+    handler->warning = colors[3];
+  }
+  if (colors_count >= 5) {
+    handler->error = colors[4];
+  }
+  if (colors_count >= 6) {
+    handler->fatal = colors[5];
+  }
+  if (colors_count >= 7) {
+    handler->max = colors[6];
+  }
 
-	if (colors_count >= 1) {
-		handler->trace = colors[0];
-	}
-
-	if (colors_count >= 2) {
-		handler->debug = colors[1];
-	}
-
-	if (colors_count >= 3) {
-		handler->info = colors[2];
-	}
-
-	if (colors_count >= 4) {
-		handler->warning = colors[3];
-	}
-
-	if (colors_count >= 5) {
-		handler->error = colors[4];
-	}
-
-	if (colors_count >= 6) {
-		handler->fatal = colors[5];
-	}
-
-	else {
-		handler->max = colors[6];
-	}
-
-	return 0;
+  return 0;
 }

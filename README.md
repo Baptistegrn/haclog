@@ -181,7 +181,7 @@ haclog_color_t colors[] = {
     HACLOG_COLOR_WHT, // info
     HACLOG_COLOR_YEL, // warning
     HACLOG_COLOR_RED, // error
-    HACLOG_COLOR_MAG  // fatal
+    HACLOG_COLOR_MAG,  // fatal
 	HACLOG_COLOR_RED, // max
 };
 
